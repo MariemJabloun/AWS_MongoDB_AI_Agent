@@ -1,18 +1,18 @@
-import streamlit as st
 import time
-import boto3
-from utils import bedrock
 import json
-from langchain_aws import AmazonKnowledgeBasesRetriever
 import os
+import boto3
+import streamlit as st
+from langchain_aws import AmazonKnowledgeBasesRetriever
 
+AWS_REGION = os.environ.get("AWS_DEFAULT_REGION")
 
 print("started...")
 
 # initialize AmazonKnowledgeBaseRetriever
 retriever = AmazonKnowledgeBasesRetriever(
     knowledge_base_id=os.environ.get("BEDROCK_KB_ID"),
-    region_name="us-west-2",
+    region_name=AWS_REGION,
     retrieval_config={
         "vectorSearchConfiguration": {
             "numberOfResults": 5,
@@ -23,33 +23,33 @@ retriever = AmazonKnowledgeBasesRetriever(
 
 # Streamed response emulator
 def response_generator(query_string):
-    res = retriever.invoke(query_string, region_name="us-west-2")
+    res = retriever.invoke(query_string, region_name=AWS_REGION)
 
     print("finished search...")
 
-    bedrock = boto3.client('bedrock-runtime', region_name="us-west-2")
+    bedrock = boto3.client('bedrock-runtime', region_name=AWS_REGION)
 
-    prompt = f"""Human: You are expert on best practices for managing MongoDB clusters.  
-    {res} 
+    prompt = f"""Human: You are expert on best practices for managing MongoDB clusters.
+    {res}
     \n\nBot: Let me answer your question ...
     """
     print(f"constructed prompt: {prompt}")
 
     body = json.dumps({
-    "inputText": prompt,
+        "prompt": prompt
     })
 
-    # invoke titan model
-    response = bedrock.invoke_model(
-    modelId="amazon.titan-text-express-v1",
-    body=body
+    # invoke text generation model
+    response_in = bedrock.invoke_model(
+        modelId="mistral.mistral-large-2402-v1:0",
+        body=body
     )
 
-    response_body = json.loads(response['body'].read())
-    outputText = response_body["results"][0]['outputText']
-    print(outputText)
+    response_body = json.loads(response_in['body'].read())
+    output_text = response_body["outputs"][0]["text"]
+    print(output_text)
 
-    for word in outputText.split():
+    for word in output_text.split():
         yield word + " "
         time.sleep(0.05)
 
@@ -66,15 +66,18 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # Accept user input
-if prompt := st.chat_input("Type your query:"):
+if user_prompt := st.chat_input("Type your query:"):
     # Add user message to chat history
-    st.session_state.messages.append({"role": "user", "content": "Let me create the script for you about: " + prompt})
+    st.session_state.messages.append({
+        "role": "user", 
+        "content": "Let me create the script for you about: " + user_prompt,
+    })
     # Display user message in chat message container
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.markdown(user_prompt)
 
     # Display assistant response in chat message container
     with st.chat_message("assistant"):
-        response = st.write_stream(response_generator(prompt))
+        response = st.write_stream(response_generator(user_prompt))
     # Add assistant response to chat history
     st.session_state.messages.append({"role": "assistant", "content": response})
