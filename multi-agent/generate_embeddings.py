@@ -52,7 +52,7 @@ def setup_bedrock():
 
 # Get the MongoDB connection string from Secrets Manager
 logger.info("Retrieving MongoDB connection string from Secrets Manager")
-mongodb_uri = get_secret("workshop/atlas_secret")  # Replace with your secret name
+mongodb_uri = get_secret("workshop/atlas_secret5")  # Replace with your secret name
 
 # MongoDB connection
 logger.info("Connecting to MongoDB Atlas")

@@ -240,7 +240,7 @@ def get_secret(secret_name):
 
 def get_mongo_client():
     try:
-        mongodb_uri = get_secret("workshop/atlas_secret")  # Replace with your secret name
+        mongodb_uri = get_secret("workshop/atlas_secret5")  # Replace with your secret name
         logger.info("Creating MongoDB client connection")
         client = MongoClient(mongodb_uri, tlsCAFile=certifi.where())
         logger.info("Successfully connected to MongoDB")
