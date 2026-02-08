@@ -13,33 +13,27 @@ Requires:
 """
 
 import argparse
-import boto3
 import json
 import os
+import boto3
 
 
-region = os.getenv('AWS_REGION', 'us-west-2')
-print(f'Using region: {region}')
+region = os.getenv("AWS_REGION", "us-west-2")
+print(f"Using region: {region}")
 
-agentcore_client = boto3.client(
-    'bedrock-agentcore',
-    region_name=region
-)
-agentcore_control_client = boto3.client(
-    'bedrock-agentcore-control',
-    region_name=region
-)
+agentcore_client = boto3.client("bedrock-agentcore", region_name=region)
+agentcore_control_client = boto3.client("bedrock-agentcore-control", region_name=region)
 
 
 def get_agent_runtimes():
-    response = agentcore_control_client.list_agent_runtimes()
-    runtimes = [ runtime for runtime in response['agentRuntimes'] ]
-    print('-' * 80)
-    for runtime in runtimes:
+    response_in = agentcore_control_client.list_agent_runtimes()
+    runtimes_in = [runtime for runtime in response_in["agentRuntimes"]]
+    print("-" * 80)
+    for runtime in runtimes_in:
         print(f"Agent Name: {runtime['agentRuntimeName']}")
         print(f"ARN: {runtime['agentRuntimeArn']}")
-        print('-' * 80)
-    return runtimes
+        print("-" * 80)
+    return runtimes_in
 
 
 def invoke_agent_runtime(agent_arn, payload):
@@ -59,9 +53,7 @@ def invoke_agent_runtime(agent_arn, payload):
     """
 
     response = agentcore_client.invoke_agent_runtime(
-        agentRuntimeArn=agent_arn,
-        qualifier="DEFAULT",
-        payload=payload
+        agentRuntimeArn=agent_arn, qualifier="DEFAULT", payload=payload
     )
     if "text/event-stream" in response.get("contentType", ""):
         content = []
@@ -73,41 +65,47 @@ def invoke_agent_runtime(agent_arn, payload):
                     try:
                         data = json.loads(line)
                         if isinstance(data, dict):
-                            event = data.get('event', '')
-                            contentBlockDelta = event.get('contentBlockDelta', '')
-                            delta = contentBlockDelta.get('delta', '')
-                            text = delta.get('text', '')
+                            event = data.get("event", "")
+                            content_block_delta = event.get("contentBlockDelta", "")
+                            delta = content_block_delta.get("delta", "")
+                            text = delta.get("text", "")
                             content.append(text)
-                            print(text, end='')
-                    except Exception as e:
+                            print(text, end="")
+                    except Exception:
                         pass
                     # print(line)
                     # content.append(line)
-        return ''.join(content)
+        return "".join(content)
 
-    elif response.get("contentType") == "application/json":
+    if response.get("contentType") == "application/json":
         # Handle standard JSON response
         content = []
         for chunk in response.get("response", []):
-            content.append(chunk.decode('utf-8'))
-        print(json.loads(''.join(content)))
-        return '\n'.join(content)
-    else:
-        # Print raw response for other content types
-        print(response)
+            content.append(chunk.decode("utf-8"))
+        print(json.loads("".join(content)))
+        return "\n".join(content)
+
+    # Print raw response for other content types
+    print(response)
     return response
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Invoke an agent runtime with a prompt')
-    parser.add_argument('--prompt', type=str, default="What is the weather like in Seattle?",
-                        help='The prompt to send to the agent runtime')
+    parser = argparse.ArgumentParser(
+        description="Invoke an agent runtime with a prompt"
+    )
+    parser.add_argument(
+        "--prompt",
+        type=str,
+        default="What is the weather like in Seattle?",
+        help="The prompt to send to the agent runtime",
+    )
     args = parser.parse_args()
 
     runtimes = get_agent_runtimes()
     if len(runtimes):
-        agent_arn = runtimes[0]['agentRuntimeArn']
-        payload = json.dumps({"prompt": args.prompt})
-        print(f'Invoking agent with payload:\n{payload}\n')
-        response = invoke_agent_runtime(agent_arn, payload)
+        used_agent_arn = runtimes[0]["agentRuntimeArn"]
+        used_payload = json.dumps({"prompt": args.prompt})
+        print(f"Invoking agent with payload:\n{used_payload}\n")
+        invoke_agent_runtime(used_agent_arn, used_payload)
         print()
